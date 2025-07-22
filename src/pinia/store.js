@@ -1,11 +1,46 @@
-import { getCurrentInstance, inject, reactive } from 'vue'
+import { computed, getCurrentInstance, inject, reactive, toRefs } from 'vue'
 import { PiniaSymbol } from './rootState'
 
 function createOptionStore(id, options, pinia) {
-  const { state } = options
+  const { state, actions, getters = {} } = options
 
   const store = reactive({})
-  Object.assign(store, state())
+
+  function setup() {
+    pinia.state.value[id] = state ? state() : {}
+
+    const localState = toRefs(pinia.state.value[id])
+
+    const setupStore = Object.assign(
+      localState,
+      actions,
+      Object.keys(getters).reduce((computeds, getterKey) => {
+        computeds[getterKey] = computed(() => {
+          return getters[getterKey].call(store)
+        })
+        return computeds
+      }, {}),
+    )
+    return setupStore
+  }
+
+  function wrapAction(actions) {
+    return function (...args) {
+      actions.call(store, ...args)
+    }
+  }
+
+  const setupStore = setup() // 拿到的setupStore 没有处理this指向
+
+  for (const prop in setupStore) {
+    const value = setupStore[prop]
+    if (typeof value === 'function') {
+      // 处理 actions 中的函数 this 指向问题
+      setupStore[prop] = wrapAction(value)
+    }
+  }
+
+  Object.assign(store, setupStore)
   pinia._s.set(id, store)
 }
 

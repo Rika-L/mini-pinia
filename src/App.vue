@@ -3,12 +3,12 @@ import { useCounterStore } from './stores/counter'
 
 const counterStore = useCounterStore()
 
-console.log(counterStore)
+console.log(counterStore.count)
 </script>
 
 <template>
-  <button @click="counterStore.count++">
-    {{ counterStore.count }}
+  <button @click="counterStore.increment">
+    {{ counterStore.doubleCount }} + {{ counterStore.count }}
   </button>
 </template>
 
