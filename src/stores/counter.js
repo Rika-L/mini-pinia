@@ -24,13 +24,13 @@ export const useCounterStore = defineStore('counter', {
   }),
   getters: {
     doubleCount() {
-      console.log(this.count)
       return this.count * 2
     },
   },
   actions: {
     increment() {
       this.count++
+      return 1
     },
   },
 })

@@ -129,6 +129,11 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
   }
 
   Object.assign(store, setupStore)
+
+  pinia._p.forEach((plugin) => {
+    plugin({ store, id }) // 执行插件
+  })
+
   pinia._s.set(id, store)
 
   return store
