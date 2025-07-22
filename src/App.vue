@@ -1,8 +1,15 @@
 <script setup>
+import { useCounterStore } from './stores/counter'
+
+const counterStore = useCounterStore()
+
+console.log(counterStore)
 </script>
 
 <template>
-  index
+  <button @click="counterStore.count++">
+    {{ counterStore.count }}
+  </button>
 </template>
 
 <style scoped>
