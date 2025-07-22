@@ -2,6 +2,10 @@ import { computed, getCurrentInstance, inject, isRef, reactive, toRefs, watch } 
 import { PiniaSymbol } from './rootState'
 import { addSubscription, triggerSubscriptions } from './sub'
 
+function isComputed(value) {
+  return isRef(value) && value.effect
+}
+
 function createOptionStore(id, options, pinia) {
   const { state, actions, getters = {} } = options
 
@@ -124,11 +128,22 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
     }
     else if (isSetupStore) { // 对setupStore做一些处理操作
       // 是用户写的componsition api
-      pinia.state.value[id][prop] = value // 将用户返回的对象里的所有属性存下来
+
+      if (isComputed(value))
+        pinia.state.value[id][prop] = value // 将用户返回的对象里的所有属性存下来
     }
   }
 
   Object.assign(store, setupStore)
+
+  Object.defineProperty(store, '$state', {
+    get() {
+      return pinia.state.value[id] // 取值操作
+    },
+    set(newState) {
+      store.$patch(newState)
+    },
+  })
 
   pinia._p.forEach((plugin) => {
     plugin({ store, id }) // 执行插件
