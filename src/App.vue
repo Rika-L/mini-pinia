@@ -11,12 +11,17 @@ function fn() {
   })
   console.log(counterStore.$patch)
 }
+
+function reset() {
+  counterStore.$reset()
+}
 </script>
 
 <template>
   <button @click="fn">
     {{ counterStore.doubleCount }} + {{ counterStore.count }}
   </button>
+  <button @click="reset">reset</button>
 </template>
 
 <style scoped>

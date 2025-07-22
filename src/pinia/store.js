@@ -14,6 +14,7 @@ function createOptionStore(id, options, pinia) {
       actions,
       Object.keys(getters).reduce((computeds, getterKey) => {
         computeds[getterKey] = computed(() => {
+          const store = pinia._s.get(id) // 获取当前store
           return getters[getterKey].call(store)
         })
         return computeds
@@ -22,7 +23,14 @@ function createOptionStore(id, options, pinia) {
     return setupStore
   }
 
-  createSetupStore(id, setup, pinia)
+  const store = createSetupStore(id, setup, pinia)
+
+  store.$reset = function () {
+    const newState = state ? state() : {}
+    this.$patch(newState) // 重置状态
+  }
+
+  return store
 }
 
 function isObject(value) {
@@ -83,6 +91,8 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
 
   Object.assign(store, setupStore)
   pinia._s.set(id, store)
+
+  return store
 }
 
 export function defineStore(idOrOptions, setup) {
