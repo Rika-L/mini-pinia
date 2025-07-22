@@ -1,5 +1,6 @@
 import { computed, getCurrentInstance, inject, isRef, reactive, toRefs, watch } from 'vue'
 import { PiniaSymbol } from './rootState'
+import { addSubscription, triggerSubscriptions } from './sub'
 
 function createOptionStore(id, options, pinia) {
   const { state, actions, getters = {} } = options
@@ -38,14 +39,15 @@ function isObject(value) {
 }
 
 function createSetupStore(id, setup, pinia, isSetupStore) {
-
-  function merge(target, partialState){
+  function merge(target, partialState) {
     for (const key in partialState) {
-      if(!partialState.hasOwnProperty(key)) continue
-      const targetValue =  target[key]
+      if (!Object.prototype.hasOwnProperty.call(partialState, key))
+        continue
+      const targetValue = target[key]
       const subPatch = partialState[key]
 
-      if(isObject(subPatch) && isObject(targetValue) && !isRef(subPatch)) target[key] = merge(targetValue, subPatch) // 递归合并
+      if (isObject(subPatch) && isObject(targetValue) && !isRef(subPatch))
+        target[key] = merge(targetValue, subPatch) // 递归合并
       else target[key] = subPatch
     }
 
@@ -54,33 +56,64 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
 
   function $patch(partialStateOrMutator) {
     // 这里需要获取到原来的所有状态
-    if(typeof partialStateOrMutator !== 'function') {
+    if (typeof partialStateOrMutator !== 'function') {
       merge(pinia.state.value[id], partialStateOrMutator)
-    }else {
+    }
+    else {
       partialStateOrMutator(pinia.state.value[id]) // 如果是函数则直接调用
     }
   }
 
+  const actionSubscriptions = []
   const partialStore = {
     $patch,
     $subscribe(callback) {
-      watch(pinia.state.value[id], state => {
-        callback({id}, state)
+      watch(pinia.state.value[id], (state) => {
+        callback({ id }, state)
       })
-    }
+    },
+    $onAction: addSubscription.bind(null, actionSubscriptions), // 订阅
   }
 
   const store = reactive(partialStore)
 
   function wrapAction(actions) {
-    return function (...args) {
-      actions.call(store, ...args)
+    return function () {
+      const afterCallbacks = []
+      const onErrorCallbacks = []
+      const after = (callback) => {
+        afterCallbacks.push(callback)
+      }
+      const onError = (callback) => {
+        onErrorCallbacks.push(callback)
+      }
+      triggerSubscriptions(actionSubscriptions, { after, onError })
+      let ret
+      try {
+      // eslint-disable-next-line prefer-rest-params
+        ret = actions.call(store, ...arguments)
+        triggerSubscriptions(afterCallbacks, ret) // 执行after回调
+      }
+      catch (e) {
+        triggerSubscriptions(onErrorCallbacks, e) // 执行onError回调
+      }
+      if (ret instanceof Promise) {
+        return ret.then((value) => {
+          triggerSubscriptions(afterCallbacks, value) // 执行after回调
+        }).catch((error) => {
+          triggerSubscriptions(onErrorCallbacks, error) // 执行onError回调
+        })
+      }
+      return ret
     }
+    // return function (...args) {
+    //   actions.call(store, ...args)
+    // }
   }
 
   const setupStore = setup() // 拿到的setupStore 没有处理this指向
 
-  if(isSetupStore) {
+  if (isSetupStore) {
     pinia.state.value[id] = {} // 用于存放setupStore的id对应的状态
   }
   for (const prop in setupStore) {
@@ -88,7 +121,8 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
     if (typeof value === 'function') {
       // 处理 actions 中的函数 this 指向问题
       setupStore[prop] = wrapAction(value)
-    } else if (isSetupStore) { // 对setupStore做一些处理操作
+    }
+    else if (isSetupStore) { // 对setupStore做一些处理操作
       // 是用户写的componsition api
       pinia.state.value[id][prop] = value // 将用户返回的对象里的所有属性存下来
     }
@@ -122,8 +156,8 @@ export function defineStore(idOrOptions, setup) {
     const pinia = currentInstance && inject(PiniaSymbol)
 
     if (!pinia._s.has(id)) {
-
-      if(isSetupStore) createSetupStore(id, setup, pinia, isSetupStore)
+      if (isSetupStore)
+        createSetupStore(id, setup, pinia, isSetupStore)
       else createOptionStore(id, options, pinia) // 创建的store只需要存在_s中即可
     }
     const store = pinia._s.get(id) // 如果已经有了store则不用创建
