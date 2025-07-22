@@ -4,8 +4,6 @@ import { PiniaSymbol } from './rootState'
 function createOptionStore(id, options, pinia) {
   const { state, actions, getters = {} } = options
 
-  const store = reactive({})
-
   function setup() {
     pinia.state.value[id] = state ? state() : {}
 
@@ -23,6 +21,12 @@ function createOptionStore(id, options, pinia) {
     )
     return setupStore
   }
+
+  createSetupStore(id, setup, pinia)
+}
+
+function createSetupStore(id, setup, pinia) {
+  const store = reactive({})
 
   function wrapAction(actions) {
     return function (...args) {
@@ -48,6 +52,8 @@ export function defineStore(idOrOptions, setup) {
   let id
   let options
 
+  const isSetupStore = typeof setup === 'function'
+
   // 对用户的两种写法做一个处理
   if (typeof idOrOptions === 'string') {
     id = idOrOptions
@@ -64,8 +70,9 @@ export function defineStore(idOrOptions, setup) {
     const pinia = currentInstance && inject(PiniaSymbol)
 
     if (!pinia._s.has(id)) {
-      // 第一次使用pinia
-      createOptionStore(id, options, pinia) // 创建的store只需要存在_s中即可
+
+      if(isSetupStore) createSetupStore(id, setup, pinia)
+      else createOptionStore(id, options, pinia) // 创建的store只需要存在_s中即可
     }
     const store = pinia._s.get(id) // 如果已经有了store则不用创建
 
