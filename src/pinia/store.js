@@ -1,4 +1,4 @@
-import { computed, getCurrentInstance, inject, isRef, reactive, toRefs } from 'vue'
+import { computed, getCurrentInstance, inject, isRef, reactive, toRefs, watch } from 'vue'
 import { PiniaSymbol } from './rootState'
 
 function createOptionStore(id, options, pinia) {
@@ -62,7 +62,12 @@ function createSetupStore(id, setup, pinia, isSetupStore) {
   }
 
   const partialStore = {
-    $patch
+    $patch,
+    $subscribe(callback) {
+      watch(pinia.state.value[id], state => {
+        callback({id}, state)
+      })
+    }
   }
 
   const store = reactive(partialStore)

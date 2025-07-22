@@ -15,6 +15,11 @@ function fn() {
 function reset() {
   counterStore.$reset()
 }
+
+counterStore.$subscribe((mutation, state) => {
+  console.log('mutation', mutation)
+  console.log('state', state)
+})
 </script>
 
 <template>
